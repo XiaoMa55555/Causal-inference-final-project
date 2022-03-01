@@ -1,13 +1,13 @@
-Causal inference final project
+Average Treatment Effect(ATE) in multi-level treatment
 ================
 Xiao Ma
 2/14/2022
 
 ``` r
-library(Hmisc)
-library(tidyverse)
-library(nnet)
-library(rms)
+library(Hmisc, quietly = TRUE)
+library(tidyverse, quietly = TRUE)
+library(nnet, quietly = TRUE)
+library(rms, quietly = TRUE)
 getHdata(plasma)
 plasma<-plasma %>%
   mutate(Vituse=vituse,
@@ -61,12 +61,9 @@ data0.boot <- data1.boot <- data2.boot <- plasma.boot
 data0.boot$vituse = factor(0)
 data1.boot$vituse = factor(1)
 data2.boot$vituse = factor(2)
-pred0.boot <- predict(m1.boot, newdata = data0.boot,
-type = "response")
-pred1.boot <- predict(m1.boot, newdata = data1.boot,
-type = "response")
-pred2.boot <- predict(m1.boot, newdata = data2.boot,
-type = "response")
+pred0.boot <- predict(m1.boot, newdata = data0.boot, type = "response")
+pred1.boot <- predict(m1.boot, newdata = data1.boot, type = "response")
+pred2.boot <- predict(m1.boot, newdata = data2.boot, type = "response")
 ATE_adj_01.boot <- c(ATE_adj_01.boot, mean(pred1.boot - pred0.boot))
 ATE_adj_02.boot <- c(ATE_adj_02.boot, mean(pred2.boot - pred0.boot))
 }
@@ -74,6 +71,117 @@ ATE_adj_02.boot <- c(ATE_adj_02.boot, mean(pred2.boot - pred0.boot))
 #Result for Regression adjusted method
 se_adj_01 <- sd(ATE_adj_01.boot)
 se_adj_02 <- sd(ATE_adj_02.boot)
+```
+
+``` r
+#PS Regression Adjustment
+#Propensity Model, use multinomial logistic regression model
+ps_predict<-multinom(factor(vituse) ~ age + sex + smokstat + quetelet + calories + fat + fiber + alcohol + cholesterol + betadiet + retdiet, data = plasma)
+
+#Obtain Estimated Propensity Scores
+ps<-data.frame(fitted(ps_predict))
+ps0<-fitted(ps_predict)[,1]
+ps1<-fitted(ps_predict)[,2]
+ps2<-fitted(ps_predict)[,3]
+names(ps)[1]<-paste("ps0")
+names(ps)[2]<-paste("ps1")
+names(ps)[3]<-paste("ps2")
+plasma<-cbind(plasma,ps)
+
+#Include in Outcome Model
+m1.ps0 <- lm(betaplasma ~ vituse*rcs(ps0, 5), data = plasma)
+m1.ps1 <- lm(betaplasma ~ vituse*rcs(ps1, 5), data = plasma)
+m1.ps2 <- lm(betaplasma ~ vituse*rcs(ps2, 5), data = plasma)
+
+#PS Regression Adjustment
+data0 <- data1 <- data2 <- plasma
+data0$vituse = factor(0)
+data1$vituse = factor(1)
+data2$vituse = factor(2)
+
+#Adjusted outcome value
+pred0.ps <- predict(m1.ps0, newdata = data0, type = "response")
+pred1.ps <- predict(m1.ps1, newdata = data1, type = "response")
+pred2.ps <- predict(m1.ps2, newdata = data2, type = "response")
+
+#Adjusted outcome value
+ATE_ps_01<-mean(pred1.ps-pred0.ps)
+ATE_ps_02<-mean(pred2.ps-pred0.ps)
+
+#Bootstrap for calculating se
+set.seed(7485)
+B <- 100
+ATE_ps_01.boot <- NULL
+ATE_ps_02.boot <- NULL
+n <- nrow(plasma)
+for(i in 1:B) {
+plasma.boot <- plasma[sample(1:n, n, replace = TRUE), ]
+m1.ps0.boot <- lm(betaplasma ~ vituse*rcs(ps0, 5), data = plasma.boot)
+m1.ps1.boot <- lm(betaplasma ~ vituse*rcs(ps1, 5), data = plasma.boot)
+m1.ps2.boot <- lm(betaplasma ~ vituse*rcs(ps2, 5), data = plasma.boot)
+data0.boot <- data1.boot <- data2.boot <- plasma.boot
+data0.boot$vituse = factor(0)
+data1.boot$vituse = factor(1)
+data2.boot$vituse = factor(2)
+pred0.boot <- predict(m1.ps0.boot, newdata = data0.boot, type = "response")
+pred1.boot <- predict(m1.ps1.boot, newdata = data1.boot, type = "response")
+pred2.boot <- predict(m1.ps2.boot, newdata = data2.boot, type = "response")
+ATE_ps_01.boot <- c(ATE_ps_01.boot, mean(pred1.boot - pred0.boot))
+ATE_ps_02.boot <- c(ATE_ps_02.boot, mean(pred2.boot - pred0.boot))}
+
+#Result for PS Regression adjusted method
+se_ps_01 <- sd(ATE_ps_01.boot)
+se_ps_02 <- sd(ATE_ps_02.boot)
+```
+
+``` r
+#Propensity Scores Stratification
+#Divide Propensity Scores Into Quintiles
+ps0_quintile <- cut(plasma$ps0,
+breaks = c(0, quantile(plasma$ps0, p = c(0.2, 0.4, 0.6, 0.8)), 1), labels = 1:5)
+ps1_quintile <- cut(plasma$ps1,
+breaks = c(0, quantile(plasma$ps1, p = c(0.2, 0.4, 0.6, 0.8)), 1), labels = 1:5)
+ps2_quintile <- cut(plasma$ps2,
+breaks = c(0, quantile(plasma$ps2, p = c(0.2, 0.4, 0.6, 0.8)), 1), labels = 1:5)
+
+#Propensity Scores Stratification
+n <- nrow(plasma)
+nj <- table(ps0_quintile)
+te_quintile01 <- tapply(plasma$betaplasma[plasma$vituse == 1], ps1_quintile[plasma$vituse == 1], mean) - tapply(plasma$betaplasma[plasma$vituse == 0], ps0_quintile[plasma$vituse == 0], mean)
+te_quintile02 <- tapply(plasma$betaplasma[plasma$vituse == 2], ps2_quintile[plasma$vituse == 2], mean) - tapply(plasma$betaplasma[plasma$vituse == 0], ps0_quintile[plasma$vituse == 0], mean)
+ATE_PSS_01 <- sum(te_quintile01 *nj/n)
+ATE_PSS_02 <- sum(te_quintile02 *nj/n)
+
+#Bootstrap for PS Stratification
+set.seed(7485)
+B <- 100
+ATE_PSS_01.boot <- NULL
+ATE_PSS_02.boot <- NULL
+n <- nrow(plasma)
+for(i in 1:B) {
+plasma.boot <- plasma[sample(1:n, n, replace = TRUE), ]
+ps_predict.boot <- multinom(vituse ~ age + sex + smokstat + quetelet + calories + fat + fiber + alcohol + cholesterol + betadiet + retdiet, data = plasma.boot)
+ps0.boot <- fitted(ps_predict.boot)[,1]
+ps1.boot <- fitted(ps_predict.boot)[,2]
+ps2.boot <- fitted(ps_predict.boot)[,3]
+ps0_quintile.boot <- cut(ps0.boot,
+breaks = c(0, quantile(ps0.boot, p = c(0.2, 0.4, 0.6, 0.8)), 1), labels = 1:5)
+ps1_quintile.boot <- cut(ps1.boot,
+breaks = c(0, quantile(ps1.boot, p = c(0.2, 0.4, 0.6, 0.8)), 1), labels = 1:5)
+ps2_quintile.boot <- cut(ps2.boot,
+breaks = c(0, quantile(ps2.boot, p = c(0.2, 0.4, 0.6, 0.8)), 1), labels = 1:5)
+nj0.boot <- table(ps0_quintile.boot)
+nj1.boot <- table(ps1_quintile.boot)
+nj2.boot <- table(ps2_quintile.boot)
+te_quintile01.boot <- tapply(plasma.boot$betaplasma[plasma.boot$vituse == 1], ps1_quintile.boot[plasma.boot$vituse == 1], mean) - tapply(plasma.boot$betaplasma[plasma.boot$vituse == 0], ps0_quintile.boot[plasma.boot$vituse == 0], mean)
+te_quintile02.boot <- tapply(plasma.boot$betaplasma[plasma.boot$vituse == 2], ps2_quintile.boot[plasma.boot$vituse == 2], mean) - tapply(plasma.boot$betaplasma[plasma.boot$vituse == 0], ps0_quintile.boot[plasma.boot$vituse == 0], mean)
+ATE_PSS_01.boot <- (te_quintile01.boot *nj1.boot/n+te_quintile01.boot *nj0.boot/n)/2
+ATE_PSS_02.boot <- (te_quintile02.boot *nj2.boot/n+te_quintile02.boot *nj0.boot/n)/2
+}
+
+#Result of PSS
+se_PSS_01 <- sd(ATE_PSS_01.boot)
+se_PSS_02 <- sd(ATE_PSS_02.boot)
 ```
 
 ``` r
@@ -87,7 +195,7 @@ plasma$dummy2<-ifelse(plasma$vituse==2,1,0)
 ps_0<-glm(dummy0 ~ age + sex + smokstat + quetelet + calories + fat + fiber + alcohol + cholesterol + betadiet + retdiet, data = plasma)
 plasma$ps_dummy0<-predict(ps_0, type = "response", family = "binomial")
 ps_1<-glm(dummy1 ~ age + sex + smokstat + quetelet + calories + fat + fiber + alcohol + cholesterol + betadiet + retdiet, data = plasma, family = "binomial")
-plasma$ps_dummy1<-predict(ps_1, type = "response")
+plasma$ps_dummy1<-predict(ps_1, type = "response", family = "binomial")
 ps_2<-glm(dummy2 ~ age + sex + smokstat + quetelet + calories + fat + fiber + alcohol + cholesterol + betadiet + retdiet, data = plasma)
 plasma$ps_dummy2<-predict(ps_2, type = "response", family = "binomial")
 
@@ -132,14 +240,14 @@ data.1<-data.frame(Method=c("Unadjusted","Regression adjusted",
                             "Propensity Scores regression adjusted",
                             "Propensity Scores Stratification",
                             "Inverse Probability Weighting"),
-                   ATE_01=c(
+                   "ATE between fairly often and never"=c(
                      paste(round(ATE_unadj_01,digits = 2),"(",round(ATE_unadj_01-qnorm(0.975)*se_unadj_01,digits = 2),",",round(ATE_unadj_01+qnorm(0.975)*se_unadj_01,digits = 2),")"),
                      paste(round(ATE_adj_01,digits = 2),"(",round(ATE_adj_01-qnorm(0.975)*se_adj_01,digits = 2),",",round(ATE_adj_01+qnorm(0.975)*se_adj_01,digits = 2),")"),
                      paste(round(ATE_ps_01,digits = 2),"(",round(ATE_ps_01-qnorm(0.975)*se_ps_01,digits = 2),",",round(ATE_ps_01+qnorm(0.975)*se_ps_01,digits = 2),")"),
                      paste(round(ATE_PSS_01,digits = 2),"(",round(ATE_PSS_01-qnorm(0.975)*se_PSS_01,digits = 2),",",round(ATE_PSS_01+qnorm(0.975)*se_PSS_01,digits = 2),")"),
                      paste(round(ATE_IPW2_01,digits = 2),"(",round(ATE_IPW2_01-qnorm(0.975)*se_IPW2_01,digits = 2),",",round(ATE_IPW2_01+qnorm(0.975)*se_IPW2_01,digits = 2),")")),
                    
-                   ATE_02=c(
+                   "ATE between not often and never"=c(
                      paste(round(ATE_unadj_02,digits = 2),"(",round(ATE_unadj_02-qnorm(0.975)*se_unadj_02,digits = 2),",",round(ATE_unadj_02+qnorm(0.975)*se_unadj_02,digits = 2),")"),
                      paste(round(ATE_adj_02,digits = 2),"(",round(ATE_adj_02-qnorm(0.975)*se_adj_02,digits = 2),",",round(ATE_adj_02+qnorm(0.975)*se_adj_02,digits = 2),")"),
                      paste(round(ATE_ps_02,digits = 2),"(",round(ATE_ps_02-qnorm(0.975)*se_ps_02,digits = 2),",",round(ATE_ps_02+qnorm(0.975)*se_ps_02,digits = 2),")"),
@@ -149,10 +257,10 @@ data.1<-data.frame(Method=c("Unadjusted","Regression adjusted",
 knitr::kable(data.1)
 ```
 
-| Method                                | ATE_01                    | ATE_02                  |
-|:--------------------------------------|:--------------------------|:------------------------|
-| Unadjusted                            | 104.07 ( 57.32 , 150.81 ) | 48.77 ( 13.17 , 84.36 ) |
-| Regression adjusted                   | 78.28 ( 38.27 , 118.29 )  | 44 ( 6.49 , 81.51 )     |
-| Propensity Scores regression adjusted | 89.76 ( 43.4 , 136.12 )   | 43.37 ( -2.71 , 89.45 ) |
-| Propensity Scores Stratification      | 90.05 ( 40.58 , 139.52 )  | 33.58 ( -8.23 , 75.39 ) |
-| Inverse Probability Weighting         | 72.66 ( 30.93 , 114.4 )   | 54.11 ( 8.92 , 99.3 )   |
+| Method                                | ATE.between.fairly.often.and.never | ATE.between.not.often.and.never |
+|:--------------------------------------|:-----------------------------------|:--------------------------------|
+| Unadjusted                            | 104.07 ( 57.32 , 150.81 )          | 48.77 ( 13.17 , 84.36 )         |
+| Regression adjusted                   | 78.28 ( 38.27 , 118.29 )           | 44 ( 6.49 , 81.51 )             |
+| Propensity Scores regression adjusted | 89.76 ( 43.4 , 136.12 )            | 43.37 ( -2.71 , 89.45 )         |
+| Propensity Scores Stratification      | 90.05 ( 40.58 , 139.52 )           | 33.58 ( -8.23 , 75.39 )         |
+| Inverse Probability Weighting         | 72.66 ( 30.93 , 114.4 )            | 54.11 ( 8.92 , 99.3 )           |
