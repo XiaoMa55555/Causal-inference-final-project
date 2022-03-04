@@ -1,7 +1,6 @@
 Average Treatment Effect(ATE) in multi-level treatment
 ================
 Xiao Ma
-2/14/2022
 
 ``` r
 library(Hmisc, quietly = TRUE)
@@ -13,8 +12,8 @@ plasma<-plasma %>%
   mutate(Vituse=vituse,
          vituse=fct_recode(vituse,
                            "0"="No",
-                           "2"="Yes, not often",
-                           "1"="Yes, fairly often"))
+                           "1"="Yes, not often",
+                           "2"="Yes, fairly often"))
 ```
 
 ``` r
@@ -240,14 +239,14 @@ data.1<-data.frame(Method=c("Unadjusted","Regression adjusted",
                             "Propensity Scores regression adjusted",
                             "Propensity Scores Stratification",
                             "Inverse Probability Weighting"),
-                   "ATE between fairly often and never"=c(
+                   "ATE between not often and never"=c(
                      paste(round(ATE_unadj_01,digits = 2),"(",round(ATE_unadj_01-qnorm(0.975)*se_unadj_01,digits = 2),",",round(ATE_unadj_01+qnorm(0.975)*se_unadj_01,digits = 2),")"),
                      paste(round(ATE_adj_01,digits = 2),"(",round(ATE_adj_01-qnorm(0.975)*se_adj_01,digits = 2),",",round(ATE_adj_01+qnorm(0.975)*se_adj_01,digits = 2),")"),
                      paste(round(ATE_ps_01,digits = 2),"(",round(ATE_ps_01-qnorm(0.975)*se_ps_01,digits = 2),",",round(ATE_ps_01+qnorm(0.975)*se_ps_01,digits = 2),")"),
                      paste(round(ATE_PSS_01,digits = 2),"(",round(ATE_PSS_01-qnorm(0.975)*se_PSS_01,digits = 2),",",round(ATE_PSS_01+qnorm(0.975)*se_PSS_01,digits = 2),")"),
                      paste(round(ATE_IPW2_01,digits = 2),"(",round(ATE_IPW2_01-qnorm(0.975)*se_IPW2_01,digits = 2),",",round(ATE_IPW2_01+qnorm(0.975)*se_IPW2_01,digits = 2),")")),
                    
-                   "ATE between not often and never"=c(
+                   "ATE between fairly often and never"=c(
                      paste(round(ATE_unadj_02,digits = 2),"(",round(ATE_unadj_02-qnorm(0.975)*se_unadj_02,digits = 2),",",round(ATE_unadj_02+qnorm(0.975)*se_unadj_02,digits = 2),")"),
                      paste(round(ATE_adj_02,digits = 2),"(",round(ATE_adj_02-qnorm(0.975)*se_adj_02,digits = 2),",",round(ATE_adj_02+qnorm(0.975)*se_adj_02,digits = 2),")"),
                      paste(round(ATE_ps_02,digits = 2),"(",round(ATE_ps_02-qnorm(0.975)*se_ps_02,digits = 2),",",round(ATE_ps_02+qnorm(0.975)*se_ps_02,digits = 2),")"),
@@ -257,10 +256,10 @@ data.1<-data.frame(Method=c("Unadjusted","Regression adjusted",
 knitr::kable(data.1)
 ```
 
-| Method                                | ATE.between.fairly.often.and.never | ATE.between.not.often.and.never |
-|:--------------------------------------|:-----------------------------------|:--------------------------------|
-| Unadjusted                            | 104.07 ( 57.32 , 150.81 )          | 48.77 ( 13.17 , 84.36 )         |
-| Regression adjusted                   | 78.28 ( 38.27 , 118.29 )           | 44 ( 6.49 , 81.51 )             |
-| Propensity Scores regression adjusted | 89.76 ( 43.4 , 136.12 )            | 43.37 ( -2.71 , 89.45 )         |
-| Propensity Scores Stratification      | 90.05 ( 40.58 , 139.52 )           | 33.58 ( -8.23 , 75.39 )         |
-| Inverse Probability Weighting         | 72.66 ( 30.93 , 114.4 )            | 54.11 ( 8.92 , 99.3 )           |
+| Method                                | ATE.between.not.often.and.never | ATE.between.fairly.often.and.never |
+|:--------------------------------------|:--------------------------------|:-----------------------------------|
+| Unadjusted                            | 48.77 ( 13.17 , 84.36 )         | 104.07 ( 57.32 , 150.81 )          |
+| Regression adjusted                   | 44 ( 6.49 , 81.51 )             | 78.28 ( 38.27 , 118.29 )           |
+| Propensity Scores regression adjusted | 50.03 ( -3.04 , 103.09 )        | 76.82 ( 36.3 , 117.35 )            |
+| Propensity Scores Stratification      | 52.14 ( 20.78 , 83.49 )         | 77.73 ( 34.96 , 120.5 )            |
+| Inverse Probability Weighting         | 55.94 ( 10.87 , 101.02 )        | 44.54 ( -16.97 , 106.05 )          |

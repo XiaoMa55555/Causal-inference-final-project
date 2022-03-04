@@ -1,7 +1,6 @@
 ---
 title: "Average Treatment Effect(ATE) in multi-level treatment"
 author: "Xiao Ma"
-date: "2/14/2022"
 output: github_document
 ---
 ```{r data prepartion, message=FALSE, warning=FALSE, results='hide'}
@@ -14,8 +13,8 @@ plasma<-plasma %>%
   mutate(Vituse=vituse,
          vituse=fct_recode(vituse,
                            "0"="No",
-                           "2"="Yes, not often",
-                           "1"="Yes, fairly often"))
+                           "1"="Yes, not often",
+                           "2"="Yes, fairly often"))
 ```
 
 ```{r Unjusted method, message=FALSE, warning=FALSE, results='hide'}
@@ -244,14 +243,14 @@ data.1<-data.frame(Method=c("Unadjusted","Regression adjusted",
                             "Propensity Scores regression adjusted",
                             "Propensity Scores Stratification",
                             "Inverse Probability Weighting"),
-                   "ATE between fairly often and never"=c(
+                   "ATE between not often and never"=c(
                      paste(round(ATE_unadj_01,digits = 2),"(",round(ATE_unadj_01-qnorm(0.975)*se_unadj_01,digits = 2),",",round(ATE_unadj_01+qnorm(0.975)*se_unadj_01,digits = 2),")"),
                      paste(round(ATE_adj_01,digits = 2),"(",round(ATE_adj_01-qnorm(0.975)*se_adj_01,digits = 2),",",round(ATE_adj_01+qnorm(0.975)*se_adj_01,digits = 2),")"),
                      paste(round(ATE_ps_01,digits = 2),"(",round(ATE_ps_01-qnorm(0.975)*se_ps_01,digits = 2),",",round(ATE_ps_01+qnorm(0.975)*se_ps_01,digits = 2),")"),
                      paste(round(ATE_PSS_01,digits = 2),"(",round(ATE_PSS_01-qnorm(0.975)*se_PSS_01,digits = 2),",",round(ATE_PSS_01+qnorm(0.975)*se_PSS_01,digits = 2),")"),
                      paste(round(ATE_IPW2_01,digits = 2),"(",round(ATE_IPW2_01-qnorm(0.975)*se_IPW2_01,digits = 2),",",round(ATE_IPW2_01+qnorm(0.975)*se_IPW2_01,digits = 2),")")),
                    
-                   "ATE between not often and never"=c(
+                   "ATE between fairly often and never"=c(
                      paste(round(ATE_unadj_02,digits = 2),"(",round(ATE_unadj_02-qnorm(0.975)*se_unadj_02,digits = 2),",",round(ATE_unadj_02+qnorm(0.975)*se_unadj_02,digits = 2),")"),
                      paste(round(ATE_adj_02,digits = 2),"(",round(ATE_adj_02-qnorm(0.975)*se_adj_02,digits = 2),",",round(ATE_adj_02+qnorm(0.975)*se_adj_02,digits = 2),")"),
                      paste(round(ATE_ps_02,digits = 2),"(",round(ATE_ps_02-qnorm(0.975)*se_ps_02,digits = 2),",",round(ATE_ps_02+qnorm(0.975)*se_ps_02,digits = 2),")"),
